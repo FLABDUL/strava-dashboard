@@ -1,31 +1,40 @@
+// ============================
 // backend/routes/auth.js
-import express from 'express';
-import axios from 'axios';
-import { saveToken } from '../utils/tokenStore.js';
-import 'dotenv/config';
+// ============================
+import express from "express";
+import axios from "axios";
 
 const router = express.Router();
 
-router.get('/strava', (req, res) => {
-  const client_id = process.env.STRAVA_CLIENT_ID;
-  const redirect_uri = process.env.STRAVA_REDIRECT_URI;
-  const scope = 'read,activity:read';
-  res.redirect(`https://www.strava.com/oauth/authorize?client_id=${client_id}&response_type=code&redirect_uri=${redirect_uri}&scope=${scope}`);
-});
+// Helper to read refresh token
+function getRefreshTokenFromStorage() {
+  // Implement this to read your saved refresh token (e.g. from token.json file)
+}
 
-router.get('/callback', async (req, res) => {
-  const { code } = req.query;
+// Helper to save new tokens
+function saveTokens(tokens) {
+  // Implement this to persist new tokens (e.g. to token.json file)
+}
+
+// Token refresh endpoint
+router.get("/refresh", async (req, res) => {
   try {
-    const tokenResp = await axios.post('https://www.strava.com/oauth/token', {
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-    });
-    await saveToken(tokenResp.data); // implement saveToken
-    res.redirect('http://localhost:5173'); // Redirect to frontend
+    const refreshToken = getRefreshTokenFromStorage();
+    const response = await axios.post(
+      "https://www.strava.com/oauth/token",
+      {
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }
+    );
+
+    saveTokens(response.data); // save new tokens to file
+    res.status(200).json(response.data);
   } catch (error) {
-    res.status(500).send('OAuth failed');
+    console.error("Error refreshing token", error);
+    res.status(500).json({ error: "Token refresh failed" });
   }
 });
 

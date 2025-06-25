@@ -2,14 +2,19 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement } from "chart.js";
-import ActivityMapPreview from './ActivityMapPreview';
+import { getISOWeek } from "date-fns";
+import { MapContainer, TileLayer, Polyline } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import polyline from "@mapbox/polyline";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement);
 
 export default function StravaDashboard() {
   const [activities, setActivities] = useState([]);
+  const [filteredActivities, setFilteredActivities] = useState([]);
+  const [selectedSport, setSelectedSport] = useState("All");
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState("All");
+  const [showingMapIndex, setShowingMapIndex] = useState(null);
 
   useEffect(() => {
     async function fetchActivities() {
@@ -17,8 +22,16 @@ export default function StravaDashboard() {
       try {
         const response = await axios.get("/api/activities");
         setActivities(response.data);
+        setFilteredActivities(response.data);
       } catch (error) {
-        console.error("Error fetching activities", error);
+        if (error.response && error.response.status === 401) {
+          await axios.get("/auth/refresh");
+          const response = await axios.get("/api/activities");
+          setActivities(response.data);
+          setFilteredActivities(response.data);
+        } else {
+          console.error("Error fetching activities", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -26,119 +39,201 @@ export default function StravaDashboard() {
     fetchActivities();
   }, []);
 
+  useEffect(() => {
+    if (selectedSport === "All") {
+      setFilteredActivities(activities);
+    } else {
+      setFilteredActivities(
+        activities.filter((a) => a.type === selectedSport)
+      );
+    }
+  }, [selectedSport, activities]);
+
   if (loading) return <div className="p-4 text-center">Loading your activities...</div>;
 
-  const types = Array.from(new Set(activities.map((a) => a.type)));
-  const filteredActivities = selectedType === "All" ? activities : activities.filter((a) => a.type === selectedType);
+  // --- Overall summary ---
+  const totalDistance = filteredActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
+  const totalTime = filteredActivities.reduce((sum, a) => sum + a.moving_time, 0) / 3600;
 
-  const totalDistanceKm = filteredActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
-  const totalTimeSec = filteredActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-  const totalActivities = filteredActivities.length;
-  const totalTimeHours = (totalTimeSec / 3600).toFixed(1);
+  // --- Weekly summary ---
+  const weeklySummary = filteredActivities.reduce((acc, a) => {
+    const weekNum = getISOWeek(new Date(a.start_date));
+    acc[weekNum] = acc[weekNum] || { distance: 0, time: 0, count: 0 };
+    acc[weekNum].distance += a.distance / 1000;
+    acc[weekNum].time += a.moving_time;
+    acc[weekNum].count++;
+    return acc;
+  }, {});
+  const weeklySummaryArray = Object.keys(weeklySummary).map((weekNum) => ({
+    week: `Week ${weekNum}`,
+    ...weeklySummary[weekNum],
+  }));
 
-  const dates = filteredActivities.map((a) => new Date(a.start_date).toLocaleDateString());
-  const distances = filteredActivities.map((a) => a.distance / 1000);
+  // --- Monthly summary ---
+  const monthlySummary = filteredActivities.reduce((acc, a) => {
+    const date = new Date(a.start_date);
+    const month = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+    acc[month] = acc[month] || { distance: 0, time: 0, count: 0 };
+    acc[month].distance += a.distance / 1000;
+    acc[month].time += a.moving_time;
+    acc[month].count++;
+    return acc;
+  }, {});
+  const monthlySummaryArray = Object.keys(monthlySummary).map((month) => ({
+    month,
+    ...monthlySummary[month],
+  }));
 
-  const data = {
-    labels: dates,
+  // Distance-over-time data
+  const distanceData = {
+    labels: filteredActivities.map((a) => new Date(a.start_date).toLocaleDateString()),
     datasets: [
       {
         label: "Distance (km)",
-        data: distances,
+        data: filteredActivities.map((a) => a.distance / 1000),
         fill: false,
-        borderWidth: 2,
-        borderColor: "rgba(75,192,192,1)",
-        backgroundColor: "rgba(75,192,192,0.2)",
-        pointRadius: 4,
-        pointBackgroundColor: "rgba(75,192,192,1)",
       },
     ],
   };
 
+  const handleShowMap = (idx) => setShowingMapIndex(idx === showingMapIndex ? null : idx);
+
   return (
     <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center space-y-8">
-      <h1 className="text-3xl font-bold">Your Strava Activities</h1>
+      <h1 className="text-2xl font-bold">Your Strava Activities</h1>
 
-      {/* Summary */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
-        <h2 className="text-lg font-medium mb-4 text-black">Summary</h2>
-        <div className="flex gap-4 justify-between text-center text-black">
-          <div className="bg-white flex-1 p-4 rounded shadow">
-            <p className="text-2xl font-bold">{totalActivities}</p>
-            <p className="text-sm text-gray-500">Activities</p>
-          </div>
-          <div className="bg-white flex-1 p-4 rounded shadow">
-            <p className="text-2xl font-bold">{totalDistanceKm.toFixed(2)} km</p>
-            <p className="text-sm text-gray-500">Distance</p>
-          </div>
-          <div className="bg-white flex-1 p-4 rounded shadow">
-            <p className="text-2xl font-bold">{totalTimeHours} hrs</p>
-            <p className="text-sm text-gray-500">Time</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
-        <label className="block mb-2 font-medium text-black">Filter by Activity Type:</label>
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="p-2 border rounded w-full"
-        >
+      {/* Filter Dropdown */}
+      <div>
+        <label className="font-medium mr-2">Filter by Activity Type:</label>
+        <select value={selectedSport} onChange={(e) => setSelectedSport(e.target.value)}>
           <option value="All">All</option>
-          {types.map((type) => (
-            <option key={type} value={type}>{type}</option>
-          ))}
+          <option value="Run">Run</option>
+          <option value="Ride">Ride</option>
+          <option value="Swim">Swim</option>
         </select>
       </div>
 
-      {/* Distance Chart */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
-        <h2 className="text-lg font-medium mb-2 text-black">Distance Over Time</h2>
-        <div style={{ width: "100%", height: "400px" }}>
-          <Line data={data} options={{ responsive: true, maintainAspectRatio: false }} />
-        </div>
+      {/* Overall Summary */}
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
+        <h2 className="text-lg font-medium mb-2">Overall Summary</h2>
+        <p>Total Activities: {filteredActivities.length}</p>
+        <p>Total Distance: {totalDistance.toFixed(2)} km</p>
+        <p>Total Time: {totalTime.toFixed(2)} hrs</p>
       </div>
 
-      {/* Activity List */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto">
-        <h2 className="text-lg font-medium mb-2 text-black">Activity List</h2>
-        <table className="min-w-full border border-gray-200 divide-y divide-gray-200 text-sm text-black">
+      {/* Weekly Summary */}
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
+        <h2 className="text-lg font-medium mb-2">Weekly Summary</h2>
+        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Distance (km)</th>
-              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+              <th className="p-2 text-left">Week</th>
+              <th className="p-2 text-left">Activities</th>
+              <th className="p-2 text-left">Distance (km)</th>
+              <th className="p-2 text-left">Time (hrs)</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredActivities.map((a) => (
-              <React.Fragment key={a.id || a.start_date}>
-                <tr>
-                  <td className="p-2">{a.name}</td>
-                  <td className="p-2">{new Date(a.start_date).toLocaleDateString()}</td>
-                  <td className="p-2">{(a.distance / 1000).toFixed(2)}</td>
-                  <td className="p-2">{a.type}</td>
-                </tr>
-                <tr>
-                  <td colSpan={4} className="p-2">
-                    <details>
-                      <summary className="cursor-pointer text-blue-600 underline">Show map</summary>
-                      <ActivityMapPreview summaryPolyline={a.map.summary_polyline} />
-                    </details>
-                  </td>
-                </tr>
-              </React.Fragment>
+          <tbody>
+            {weeklySummaryArray.map((w) => (
+              <tr key={w.week}>
+                <td className="p-2">{w.week}</td>
+                <td className="p-2">{w.count}</td>
+                <td className="p-2">{w.distance.toFixed(2)}</td>
+                <td className="p-2">{(w.time / 3600).toFixed(2)}</td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <a href="/auth/strava">
-        <button className="bg-blue-500 text-white px-4 py-2 mt-4 rounded">Connect to Strava</button>
-      </a>
+      {/* Monthly Summary */}
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
+        <h2 className="text-lg font-medium mb-2">Monthly Summary</h2>
+        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-2 text-left">Month</th>
+              <th className="p-2 text-left">Activities</th>
+              <th className="p-2 text-left">Distance (km)</th>
+              <th className="p-2 text-left">Time (hrs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthlySummaryArray.map((m) => (
+              <tr key={m.month}>
+                <td className="p-2">{m.month}</td>
+                <td className="p-2">{m.count}</td>
+                <td className="p-2">{m.distance.toFixed(2)}</td>
+                <td className="p-2">{(m.time / 3600).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Distance Over Time */}
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
+        <h2 className="text-lg font-medium mb-2">Distance Over Time</h2>
+        <div style={{ height: "300px", width: "100%" }}>
+          <Line data={distanceData} options={{ maintainAspectRatio: false }} />
+        </div>
+      </div>
+
+
+      { }
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
+        <h2 className="text-lg font-medium mb-2">Activity List</h2>
+        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-2 text-left">Name</th>
+              <th className="p-2 text-left">Date</th>
+              <th className="p-2 text-left">Distance (km)</th>
+              <th className="p-2 text-left">Type</th>
+              <th className="p-2 text-left">Map</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredActivities.map((a, idx) => (
+              <tr key={a.id || idx}>
+                <td className="p-2">{a.name}</td>
+                <td className="p-2">{new Date(a.start_date).toLocaleDateString()}</td>
+                <td className="p-2">{(a.distance / 1000).toFixed(2)}</td>
+                <td className="p-2">{a.type}</td>
+                <td className="p-2">
+                  {a.map && a.map.summary_polyline ? (
+                    <>
+                      <button
+                        className="bg-blue-500 text-white px-2 py-1 rounded"
+                        onClick={() => handleShowMap(idx)}
+                      >
+                        {showingMapIndex === idx ? "Hide map" : "Show map"}
+                      </button>
+                      {showingMapIndex === idx && (
+                        <div className="h-64 mt-2">
+                          <MapContainer
+                            bounds={polyline.decode(a.map.summary_polyline)}
+                            style={{ width: "100%", height: "250px" }}
+                          >
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            <Polyline
+                              positions={polyline.decode(a.map.summary_polyline)}
+                              color="blue"
+                              weight={3}
+                            />
+                          </MapContainer>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    "N/A"
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
