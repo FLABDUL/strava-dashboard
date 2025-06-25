@@ -3,18 +3,15 @@ import axios from "axios";
 import { Line } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement } from "chart.js";
 import { getISOWeek } from "date-fns";
-import { MapContainer, TileLayer, Polyline } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import polyline from "@mapbox/polyline";
+import ActivityMapPreview from "./ActivityMapPreview";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement);
 
 export default function StravaDashboard() {
   const [activities, setActivities] = useState([]);
-  const [filteredActivities, setFilteredActivities] = useState([]);
-  const [selectedSport, setSelectedSport] = useState("All");
   const [loading, setLoading] = useState(true);
-  const [showingMapIndex, setShowingMapIndex] = useState(null);
+  const [filterType, setFilterType] = useState("All");
+  const [showMap, setShowMap] = useState({});
 
   useEffect(() => {
     async function fetchActivities() {
@@ -22,13 +19,11 @@ export default function StravaDashboard() {
       try {
         const response = await axios.get("/api/activities");
         setActivities(response.data);
-        setFilteredActivities(response.data);
       } catch (error) {
         if (error.response && error.response.status === 401) {
           await axios.get("/auth/refresh");
-          const response = await axios.get("/api/activities");
-          setActivities(response.data);
-          setFilteredActivities(response.data);
+          const resp = await axios.get("/api/activities");
+          setActivities(resp.data);
         } else {
           console.error("Error fetching activities", error);
         }
@@ -39,23 +34,22 @@ export default function StravaDashboard() {
     fetchActivities();
   }, []);
 
-  useEffect(() => {
-    if (selectedSport === "All") {
-      setFilteredActivities(activities);
-    } else {
-      setFilteredActivities(
-        activities.filter((a) => a.type === selectedSport)
-      );
-    }
-  }, [selectedSport, activities]);
+  if (loading) return <div className="p-8 text-center text-white">Loading your activities...</div>;
 
-  if (loading) return <div className="p-4 text-center">Loading your activities...</div>;
+  // Filter activities
+  const filteredActivities = filterType === "All" ? activities : activities.filter((a) => a.type === filterType);
 
-  // --- Overall summary ---
-  const totalDistance = filteredActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
-  const totalTime = filteredActivities.reduce((sum, a) => sum + a.moving_time, 0) / 3600;
+  // Summaries
+  const overall = filteredActivities.reduce(
+    (acc, a) => {
+      acc.count++;
+      acc.distance += a.distance / 1000;
+      acc.time += a.moving_time;
+      return acc;
+    },
+    { count: 0, distance: 0, time: 0 }
+  );
 
-  // --- Weekly summary ---
   const weeklySummary = filteredActivities.reduce((acc, a) => {
     const weekNum = getISOWeek(new Date(a.start_date));
     acc[weekNum] = acc[weekNum] || { distance: 0, time: 0, count: 0 };
@@ -64,76 +58,78 @@ export default function StravaDashboard() {
     acc[weekNum].count++;
     return acc;
   }, {});
-  const weeklySummaryArray = Object.keys(weeklySummary).map((weekNum) => ({
-    week: `Week ${weekNum}`,
-    ...weeklySummary[weekNum],
-  }));
 
-  // --- Monthly summary ---
+  const weeklySummaryArray = Object.keys(weeklySummary).map((weekNum) => ({ week: `Week ${weekNum}`, ...weeklySummary[weekNum] }));
+
   const monthlySummary = filteredActivities.reduce((acc, a) => {
-    const date = new Date(a.start_date);
-    const month = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
-    acc[month] = acc[month] || { distance: 0, time: 0, count: 0 };
-    acc[month].distance += a.distance / 1000;
-    acc[month].time += a.moving_time;
-    acc[month].count++;
+    const monthStr = new Date(a.start_date).toLocaleString('default', { month: 'short', year: 'numeric' });
+    acc[monthStr] = acc[monthStr] || { distance: 0, time: 0, count: 0 };
+    acc[monthStr].distance += a.distance / 1000;
+    acc[monthStr].time += a.moving_time;
+    acc[monthStr].count++;
     return acc;
   }, {});
-  const monthlySummaryArray = Object.keys(monthlySummary).map((month) => ({
-    month,
-    ...monthlySummary[month],
-  }));
+  const monthlySummaryArray = Object.keys(monthlySummary).map((month) => ({ month, ...monthlySummary[month] }));
 
-  // Distance-over-time data
-  const distanceData = {
+  // Graph Data
+  const chartData = {
     labels: filteredActivities.map((a) => new Date(a.start_date).toLocaleDateString()),
     datasets: [
       {
         label: "Distance (km)",
         data: filteredActivities.map((a) => a.distance / 1000),
-        fill: false,
+        borderColor: "#FC4C02",
+        backgroundColor: "rgba(252,76,2,0.2)",
+        tension: 0.1,
       },
     ],
   };
-
-  const handleShowMap = (idx) => setShowingMapIndex(idx === showingMapIndex ? null : idx);
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: { y: { beginAtZero: true } },
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center space-y-8">
-      <h1 className="text-2xl font-bold">Your Strava Activities</h1>
+    <div className="min-h-screen bg-black p-8 flex flex-col items-center space-y-8 text-white">
+      <h1 className="text-3xl font-bold text-white">Your Strava Activities</h1>
 
-      {/* Filter Dropdown */}
-      <div>
-        <label className="font-medium mr-2">Filter by Activity Type:</label>
-        <select value={selectedSport} onChange={(e) => setSelectedSport(e.target.value)}>
-          <option value="All">All</option>
-          <option value="Run">Run</option>
-          <option value="Ride">Ride</option>
-          <option value="Swim">Swim</option>
+      {/* Filter */}
+      <div className="w-full max-w-4xl flex items-center space-x-2">
+        <span>Filter by Activity Type:</span>
+        <select
+          className="bg-black border border-orange-500 text-white rounded px-2"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option>All</option>
+          <option>Run</option>
+          <option>Ride</option>
+          <option>Swim</option>
         </select>
       </div>
 
       {/* Overall Summary */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
-        <h2 className="text-lg font-medium mb-2">Overall Summary</h2>
-        <p>Total Activities: {filteredActivities.length}</p>
-        <p>Total Distance: {totalDistance.toFixed(2)} km</p>
-        <p>Total Time: {totalTime.toFixed(2)} hrs</p>
+      <div className="bg-black border border-orange-500 p-4 rounded shadow w-full max-w-4xl text-white">
+        <h2 className="text-xl font-semibold mb-2 text-orange-500">Overall Summary</h2>
+        <p>Total Activities: {overall.count}</p>
+        <p>Total Distance: {overall.distance.toFixed(2)} km</p>
+        <p>Total Time: {(overall.time / 3600).toFixed(2)} hrs</p>
       </div>
 
       {/* Weekly Summary */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
-        <h2 className="text-lg font-medium mb-2">Weekly Summary</h2>
-        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-black border border-orange-500 p-4 rounded w-full max-w-4xl overflow-x-auto">
+        <h2 className="text-xl font-semibold mb-2 text-orange-500">Weekly Summary</h2>
+        <table className="min-w-full border border-orange-500 text-white text-sm">
+          <thead className="bg-orange-500 text-black font-bold">
             <tr>
-              <th className="p-2 text-left">Week</th>
-              <th className="p-2 text-left">Activities</th>
-              <th className="p-2 text-left">Distance (km)</th>
-              <th className="p-2 text-left">Time (hrs)</th>
+              <th className="p-2">Week</th>
+              <th className="p-2">Activities</th>
+              <th className="p-2">Distance (km)</th>
+              <th className="p-2">Time (hrs)</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-orange-500">
             {weeklySummaryArray.map((w) => (
               <tr key={w.week}>
                 <td className="p-2">{w.week}</td>
@@ -147,18 +143,18 @@ export default function StravaDashboard() {
       </div>
 
       {/* Monthly Summary */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
-        <h2 className="text-lg font-medium mb-2">Monthly Summary</h2>
-        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-black border border-orange-500 p-4 rounded w-full max-w-4xl overflow-x-auto">
+        <h2 className="text-xl font-semibold mb-2 text-orange-500">Monthly Summary</h2>
+        <table className="min-w-full border border-orange-500 text-white text-sm">
+          <thead className="bg-orange-500 text-black font-bold">
             <tr>
-              <th className="p-2 text-left">Month</th>
-              <th className="p-2 text-left">Activities</th>
-              <th className="p-2 text-left">Distance (km)</th>
-              <th className="p-2 text-left">Time (hrs)</th>
+              <th className="p-2">Month</th>
+              <th className="p-2">Activities</th>
+              <th className="p-2">Distance (km)</th>
+              <th className="p-2">Time (hrs)</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-orange-500">
             {monthlySummaryArray.map((m) => (
               <tr key={m.month}>
                 <td className="p-2">{m.month}</td>
@@ -171,62 +167,51 @@ export default function StravaDashboard() {
         </table>
       </div>
 
-      {/* Distance Over Time */}
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
-        <h2 className="text-lg font-medium mb-2">Distance Over Time</h2>
-        <div style={{ height: "300px", width: "100%" }}>
-          <Line data={distanceData} options={{ maintainAspectRatio: false }} />
+      {/* Graph */}
+      <div className="bg-black border border-orange-500 p-4 rounded w-full max-w-4xl">
+        <h2 className="text-xl font-semibold mb-2 text-orange-500">Distance Over Time</h2>
+        <div className="w-full h-64"> {/* fixed height */}
+          <Line data={chartData} options={chartOptions} />
         </div>
       </div>
 
-
-      { }
-      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto text-black">
-        <h2 className="text-lg font-medium mb-2">Activity List</h2>
-        <table className="min-w-full border border-gray-200 text-sm divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      {/* Activity List */}
+      <div className="bg-black border border-orange-500 p-4 rounded w-full max-w-4xl overflow-x-auto">
+        <h2 className="text-xl font-semibold mb-2 text-orange-500">Activity List</h2>
+        <table className="min-w-full border border-orange-500 text-white text-sm">
+          <thead className="bg-orange-500 text-black font-bold">
             <tr>
-              <th className="p-2 text-left">Name</th>
-              <th className="p-2 text-left">Date</th>
-              <th className="p-2 text-left">Distance (km)</th>
-              <th className="p-2 text-left">Type</th>
-              <th className="p-2 text-left">Map</th>
+              <th className="p-2">Name</th>
+              <th className="p-2">Date</th>
+              <th className="p-2">Distance (km)</th>
+              <th className="p-2">Type</th>
+              <th className="p-2">Map</th>
             </tr>
           </thead>
-          <tbody>
-            {filteredActivities.map((a, idx) => (
-              <tr key={a.id || idx}>
+          <tbody className="divide-y divide-orange-500">
+            {filteredActivities.map((a) => (
+              <tr key={a.id}>
                 <td className="p-2">{a.name}</td>
                 <td className="p-2">{new Date(a.start_date).toLocaleDateString()}</td>
                 <td className="p-2">{(a.distance / 1000).toFixed(2)}</td>
                 <td className="p-2">{a.type}</td>
                 <td className="p-2">
-                  {a.map && a.map.summary_polyline ? (
+                  {a.map.summary_polyline ? (
                     <>
                       <button
-                        className="bg-blue-500 text-white px-2 py-1 rounded"
-                        onClick={() => handleShowMap(idx)}
+                        onClick={() => setShowMap((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
+                        className="bg-orange-500 text-black font-medium px-2 py-1 rounded hover:bg-orange-600"
                       >
-                        {showingMapIndex === idx ? "Hide map" : "Show map"}
+                        {showMap[a.id] ? "Hide map" : "Show map"}
                       </button>
-                      {showingMapIndex === idx && (
-                        <div className="h-64 mt-2">
-                          <MapContainer
-                            bounds={polyline.decode(a.map.summary_polyline)}
-                            style={{ width: "100%", height: "250px" }}
-                          >
-                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                            <Polyline
-                              positions={polyline.decode(a.map.summary_polyline)}
-                              color="blue"
-                              weight={3}
-                            />
-                          </MapContainer>
+                      {showMap[a.id] && (
+                        <div className="map-container mt-2 w-full h-64 border border-orange-500 rounded overflow-hidden">
+                          <ActivityMapPreview summaryPolyline={a.map.summary_polyline} />
                         </div>
                       )}
                     </>
                   ) : (
-                    "N/A"
+                    <span className="italic">N/A</span>
                   )}
                 </td>
               </tr>
