@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement } from "chart.js";
+import ActivityMapPreview from './ActivityMapPreview';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement);
 
@@ -28,8 +29,7 @@ export default function StravaDashboard() {
   if (loading) return <div className="p-4 text-center">Loading your activities...</div>;
 
   const types = Array.from(new Set(activities.map((a) => a.type)));
-  const filteredActivities =
-    selectedType === "All" ? activities : activities.filter((a) => a.type === selectedType);
+  const filteredActivities = selectedType === "All" ? activities : activities.filter((a) => a.type === selectedType);
 
   const totalDistanceKm = filteredActivities.reduce((sum, a) => sum + a.distance, 0) / 1000;
   const totalTimeSec = filteredActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
@@ -56,30 +56,30 @@ export default function StravaDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center">
-      <h1 className="text-2xl font-bold mb-4">Your Strava Activities</h1>
+    <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center space-y-8">
+      <h1 className="text-3xl font-bold">Your Strava Activities</h1>
 
       {/* Summary */}
-      <div className="bg-white p-4 shadow rounded w-full max-w-2xl mb-4">
-        <h2 className="text-lg font-medium mb-2 text-black">Summary</h2>
-        <div className="flex justify-between text-black text-center">
-          <div>
-            <p className="text-xl font-bold">{totalActivities}</p>
-            <p className="text-sm">Activities</p>
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
+        <h2 className="text-lg font-medium mb-4 text-black">Summary</h2>
+        <div className="flex gap-4 justify-between text-center text-black">
+          <div className="bg-white flex-1 p-4 rounded shadow">
+            <p className="text-2xl font-bold">{totalActivities}</p>
+            <p className="text-sm text-gray-500">Activities</p>
           </div>
-          <div>
-            <p className="text-xl font-bold">{totalDistanceKm.toFixed(2)} km</p>
-            <p className="text-sm">Distance</p>
+          <div className="bg-white flex-1 p-4 rounded shadow">
+            <p className="text-2xl font-bold">{totalDistanceKm.toFixed(2)} km</p>
+            <p className="text-sm text-gray-500">Distance</p>
           </div>
-          <div>
-            <p className="text-xl font-bold">{totalTimeHours} hrs</p>
-            <p className="text-sm">Time</p>
+          <div className="bg-white flex-1 p-4 rounded shadow">
+            <p className="text-2xl font-bold">{totalTimeHours} hrs</p>
+            <p className="text-sm text-gray-500">Time</p>
           </div>
         </div>
       </div>
 
       {/* Filter */}
-      <div className="bg-white p-4 shadow rounded w-full max-w-2xl mb-4">
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
         <label className="block mb-2 font-medium text-black">Filter by Activity Type:</label>
         <select
           value={selectedType}
@@ -94,7 +94,7 @@ export default function StravaDashboard() {
       </div>
 
       {/* Distance Chart */}
-      <div className="bg-white p-4 shadow rounded w-full max-w-2xl mb-8">
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl">
         <h2 className="text-lg font-medium mb-2 text-black">Distance Over Time</h2>
         <div style={{ width: "100%", height: "400px" }}>
           <Line data={data} options={{ responsive: true, maintainAspectRatio: false }} />
@@ -102,25 +102,35 @@ export default function StravaDashboard() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-white p-4 shadow rounded w-full max-w-2xl overflow-x-auto">
+      <div className="bg-white p-4 rounded shadow w-full max-w-4xl overflow-x-auto">
         <h2 className="text-lg font-medium mb-2 text-black">Activity List</h2>
-        <table className="w-full border-collapse border border-gray-200 text-black text-sm">
-          <thead>
+        <table className="min-w-full border border-gray-200 divide-y divide-gray-200 text-sm text-black">
+          <thead className="bg-gray-50">
             <tr>
-              <th className="border border-gray-200 p-2 text-left">Name</th>
-              <th className="border border-gray-200 p-2 text-left">Date</th>
-              <th className="border border-gray-200 p-2 text-left">Distance (km)</th>
-              <th className="border border-gray-200 p-2 text-left">Type</th>
+              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Distance (km)</th>
+              <th className="p-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="bg-white divide-y divide-gray-200">
             {filteredActivities.map((a) => (
-              <tr key={a.id || a.start_date}>
-                <td className="border border-gray-200 p-2">{a.name}</td>
-                <td className="border border-gray-200 p-2">{new Date(a.start_date).toLocaleDateString()}</td>
-                <td className="border border-gray-200 p-2">{(a.distance / 1000).toFixed(2)}</td>
-                <td className="border border-gray-200 p-2">{a.type}</td>
-              </tr>
+              <React.Fragment key={a.id || a.start_date}>
+                <tr>
+                  <td className="p-2">{a.name}</td>
+                  <td className="p-2">{new Date(a.start_date).toLocaleDateString()}</td>
+                  <td className="p-2">{(a.distance / 1000).toFixed(2)}</td>
+                  <td className="p-2">{a.type}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="p-2">
+                    <details>
+                      <summary className="cursor-pointer text-blue-600 underline">Show map</summary>
+                      <ActivityMapPreview summaryPolyline={a.map.summary_polyline} />
+                    </details>
+                  </td>
+                </tr>
+              </React.Fragment>
             ))}
           </tbody>
         </table>
