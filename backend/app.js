@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import authRouter from './routes/auth.js';
 import activitiesRouter from './routes/activities.js';
-import dotenv from "dotenv";
+import dotenv from "dotenv-safe";
 dotenv.config();
 
 const app = express();

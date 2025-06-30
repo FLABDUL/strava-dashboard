@@ -17,12 +17,12 @@ export default function StravaDashboard() {
     async function fetchActivities() {
       setLoading(true);
       try {
-        const response = await axios.get("/api/activities");
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE}/api/activities`);
         setActivities(response.data);
       } catch (error) {
         if (error.response && error.response.status === 401) {
-          await axios.get("/auth/refresh");
-          const resp = await axios.get("/api/activities");
+          await axios.get(`${import.meta.env.VITE_API_BASE}/auth/refresh`);
+          const resp = await axios.get(`${import.meta.env.VITE_API_BASE}/api/activities`);
           setActivities(resp.data);
         } else {
           console.error("Error fetching activities", error);
