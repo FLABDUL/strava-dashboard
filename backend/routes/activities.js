@@ -1,21 +1,18 @@
 import express from "express";
 import axios from "axios";
-import fs from "fs";
-import path from "path";
+import { getValidToken } from "../utils/tokenStore.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const tokenData = JSON.parse(
-      fs.readFileSync(path.join(process.cwd(), "token.json"))
-    );
+    const accessToken = await getValidToken();
 
     const response = await axios.get(
       "https://www.strava.com/api/v3/athlete/activities",
       {
         headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
