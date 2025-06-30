@@ -10,11 +10,13 @@ const app = express();
 
 app.use(cors({
   origin: [
-    "http://localhost:5173",                 // allow local frontend
-    "https://strava-dashboard-production.up.railway.app"  // allow deployed frontend
+    "http://localhost:5173",                                // local dev
+    "https://strava-dashboard-zeta.vercel.app",             // vercel production frontend
+    "https://strava-dashboard-production.up.railway.app"    // if backend itself might test from there
   ],
   credentials: true
 }));
+
 
 app.use(express.json());
 
