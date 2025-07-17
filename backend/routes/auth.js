@@ -42,9 +42,17 @@ router.get("/callback", async (req, res) => {
 
     console.log("📡 Sending POST request to Strava /oauth/token with:", payload);
 
-    const response = await axios.post("https://www.strava.com/oauth/token", payload, {
-      headers: { "Content-Type": "application/json" }
+    const params = new URLSearchParams();
+    params.append("client_id", process.env.STRAVA_CLIENT_ID);
+    params.append("client_secret", process.env.STRAVA_CLIENT_SECRET);
+    params.append("code", code);
+    params.append("grant_type", "authorization_code");
+    params.append("redirect_uri", process.env.STRAVA_REDIRECT_URI);
+
+    const response = await axios.post("https://www.strava.com/oauth/token", params, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
     });
+
 
     const { access_token, refresh_token, expires_at } = response.data;
 
