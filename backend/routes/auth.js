@@ -18,7 +18,6 @@ router.get("/login", (req, res) => {
   res.redirect(`https://www.strava.com/oauth/authorize?${params.toString()}`);
 });
 
-// --- CALLBACK ---
 router.get("/callback", async (req, res) => {
   const code = req.query.code;
   const state = req.query.state;
@@ -32,16 +31,6 @@ router.get("/callback", async (req, res) => {
   if (state) console.log("🔁 State param (if used):", state);
 
   try {
-    const payload = {
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: process.env.STRAVA_REDIRECT_URI
-    };
-
-    console.log("📡 Sending POST request to Strava /oauth/token with:", payload);
-
     const params = new URLSearchParams();
     params.append("client_id", process.env.STRAVA_CLIENT_ID);
     params.append("client_secret", process.env.STRAVA_CLIENT_SECRET);
@@ -49,19 +38,19 @@ router.get("/callback", async (req, res) => {
     params.append("grant_type", "authorization_code");
     params.append("redirect_uri", process.env.STRAVA_REDIRECT_URI);
 
+    console.log("📡 Sending POST to /oauth/token with form-encoded body...");
+
     const response = await axios.post("https://www.strava.com/oauth/token", params, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" }
     });
 
-
     const { access_token, refresh_token, expires_at } = response.data;
-
     await saveTokensToDB({ access_token, refresh_token, expires_at });
+
     console.log("✅ Tokens saved to DB successfully.");
     res.send("✅ Login successful! Tokens stored.");
   } catch (err) {
     console.error("❌ Error during Strava token exchange:");
-
     if (err.response) {
       console.error("Status:", err.response.status);
       console.error("Data:", JSON.stringify(err.response.data, null, 2));
@@ -72,6 +61,7 @@ router.get("/callback", async (req, res) => {
     res.status(500).send("Error exchanging code with Strava.");
   }
 });
+
 
 // --- REFRESH ---
 router.get("/refresh", async (req, res) => {
