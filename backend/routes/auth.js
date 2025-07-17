@@ -11,7 +11,7 @@ router.get("/login", (req, res) => {
     response_type: "code",
     redirect_uri: process.env.STRAVA_REDIRECT_URI,
     approval_prompt: "auto",
-    scope: "read,activity:read"
+    scope: "read activity:read"
   });
 
   console.log("🔐 Redirecting to Strava OAuth with client_id:", process.env.STRAVA_CLIENT_ID);
