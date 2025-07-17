@@ -41,7 +41,13 @@ router.get("/callback", async (req, res) => {
     console.log("✅ Tokens successfully saved to DB.");
     res.send("✅ Login successful! Tokens stored.");
   } catch (err) {
-    console.error("❌ Error during Strava token exchange:", err.response?.data || err.message);
+    if (err.response) {
+      console.error("❌ Strava Token Exchange Error:");
+      console.error("Status:", err.response.status);
+      console.error("Data:", err.response.data);
+    } else {
+      console.error("❌ Unknown Error:", err.message);
+    }
     res.status(500).send("Error exchanging code with Strava.");
   }
 });
