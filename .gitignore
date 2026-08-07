@@ -5,3 +5,6 @@
 
 # Frontend
 /frontend/node_modules
+/frontend/.env.local
+
+.vercel

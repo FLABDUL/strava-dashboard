@@ -1,14 +1,13 @@
 import fs from "fs";
-import path from "path";
 import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config();
 
-const tokenFile = path.join(process.cwd(), "token.json");
+const tokenFile = new URL("../token.json", import.meta.url);
 
 export function loadToken() {
   try {
-    const data = JSON.parse(fs.readFileSync(tokenFile));
+    const data = JSON.parse(fs.readFileSync(tokenFile, "utf8"));
     return data;
   } catch {
     return null;

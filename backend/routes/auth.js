@@ -4,98 +4,81 @@ import { getTokenFromDB, saveTokensToDB } from "../tokenService.js";
 
 const router = express.Router();
 
-// --- LOGIN ---
+function hasStravaConfig() {
+  return Boolean(
+    process.env.STRAVA_CLIENT_ID &&
+    process.env.STRAVA_CLIENT_SECRET &&
+    process.env.STRAVA_REDIRECT_URI
+  );
+}
+
 router.get("/login", (req, res) => {
+  if (!hasStravaConfig()) {
+    return res.status(503).json({
+      error: "Strava OAuth is not configured. Copy backend/.env.example to backend/.env and add your app credentials.",
+    });
+  }
+
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
     response_type: "code",
     redirect_uri: process.env.STRAVA_REDIRECT_URI,
     approval_prompt: "auto",
-    scope: "read activity:read"
+    scope: "read activity:read",
   });
 
-  console.log("🔐 Redirecting to Strava OAuth with client_id:", process.env.STRAVA_CLIENT_ID);
   res.redirect(`https://www.strava.com/oauth/authorize?${params.toString()}`);
 });
 
 router.get("/callback", async (req, res) => {
   const code = req.query.code;
-  const state = req.query.state;
 
   if (!code) {
-    console.error("❌ No code provided in callback.");
-    return res.status(400).send("❌ No code provided by Strava.");
+    return res.status(400).send("No authorization code was provided by Strava.");
   }
 
-  console.log("🔁 Received code from Strava:", code);
-  if (state) console.log("🔁 State param (if used):", state);
-
   try {
-    const params = new URLSearchParams();
-    params.append("client_id", process.env.STRAVA_CLIENT_ID);
-    params.append("client_secret", process.env.STRAVA_CLIENT_SECRET);
-    params.append("code", code);
-    params.append("grant_type", "authorization_code");
-    params.append("redirect_uri", process.env.STRAVA_REDIRECT_URI);
-
-    console.log("📡 Sending POST to /oauth/token with form-encoded body...");
+    const params = new URLSearchParams({
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: process.env.STRAVA_REDIRECT_URI,
+    });
 
     const response = await axios.post("https://www.strava.com/oauth/token", params, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
     const { access_token, refresh_token, expires_at } = response.data;
     await saveTokensToDB({ access_token, refresh_token, expires_at });
-
-    console.log("✅ Tokens saved to DB successfully.");
-    res.send("✅ Login successful! Tokens stored.");
-  } catch (err) {
-    console.error("❌ Error during Strava token exchange:");
-    if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Data:", JSON.stringify(err.response.data, null, 2));
-    } else {
-      console.error("Message:", err.message);
-    }
-
-    res.status(500).send("Error exchanging code with Strava.");
+    res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
+  } catch (error) {
+    console.error("Strava token exchange failed", error.response?.data || error.message);
+    res.status(500).send("Error exchanging the authorization code with Strava.");
   }
 });
 
-
-// --- REFRESH ---
-router.get("/refresh", async (req, res) => {
+router.post("/refresh", async (req, res) => {
   try {
     const token = await getTokenFromDB();
 
     if (!token?.refresh_token) {
-      console.error("❌ No refresh token found.");
-      return res.status(400).json({ error: "❌ No refresh token found in DB" });
+      return res.status(401).json({ error: "No Strava refresh token was found." });
     }
-
-    console.log("🔄 Refreshing token with refresh_token:", token.refresh_token);
 
     const response = await axios.post("https://www.strava.com/oauth/token", {
       client_id: process.env.STRAVA_CLIENT_ID,
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       grant_type: "refresh_token",
-      refresh_token: token.refresh_token
+      refresh_token: token.refresh_token,
     });
 
     const { access_token, refresh_token, expires_at } = response.data;
-
     await saveTokensToDB({ access_token, refresh_token, expires_at });
-    console.log("✅ Token refreshed and saved.");
-    res.status(200).json(response.data);
-  } catch (err) {
-    console.error("❌ Token refresh failed:");
-    if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Data:", JSON.stringify(err.response.data, null, 2));
-    } else {
-      console.error("Message:", err.message);
-    }
-
+    res.status(200).json({ expires_at });
+  } catch (error) {
+    console.error("Strava token refresh failed", error.response?.data || error.message);
     res.status(500).json({ error: "Token refresh failed" });
   }
 });
