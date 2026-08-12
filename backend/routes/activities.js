@@ -7,9 +7,10 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const accessToken = await getValidToken();
+    const apiBase = process.env.STRAVA_API_BASE || "https://www.strava.com/api/v3";
 
     const response = await axios.get(
-      "https://www.strava.com/api/v3/athlete/activities",
+      `${apiBase}/athlete/activities`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -20,7 +21,8 @@ router.get("/", async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error("Error fetching activities", error.response?.data || error.message);
-    res.status(500).json({ error: "Error fetching activities" });
+    const status = error.message.includes("No token found") ? 401 : (error.response?.status || 500);
+    res.status(status).json({ error: status === 401 ? "Strava login required" : "Error fetching activities" });
   }
 });
 
