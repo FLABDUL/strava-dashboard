@@ -7,7 +7,7 @@ const demoActivities = [
     distance: 18240,
     moving_time: 5980,
     start_date: "2026-07-26T07:12:00Z",
-    map: { summary_polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" },
+    map: { summary_polyline: "g`kyHv}W_b@waBgw@wj@gw@fpA_XvuBfw@nvAfpAoK~a@ocC" },
   },
   {
     id: 1002,
@@ -17,7 +17,7 @@ const demoActivities = [
     distance: 8120,
     moving_time: 2486,
     start_date: "2026-07-22T17:48:00Z",
-    map: { summary_polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" },
+    map: { summary_polyline: "wsoyHft]g^wQoKgw@~Wod@nd@~WfEfw@_Xf^" },
   },
   {
     id: 1003,
@@ -27,7 +27,7 @@ const demoActivities = [
     distance: 14760,
     moving_time: 2742,
     start_date: "2026-07-18T06:54:00Z",
-    map: { summary_polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" },
+    map: { summary_polyline: "ockeIn`_MwQ_cB_XwuBgEooBvQgiB~WgiB" },
   },
   {
     id: 1004,
@@ -47,7 +47,7 @@ const demoActivities = [
     distance: 10110,
     moving_time: 2940,
     start_date: "2026-07-11T08:20:00Z",
-    map: { summary_polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" },
+    map: { summary_polyline: "_qmtIndqRg^wcAwQovA~WgpAvj@f^vQv|Aod@noB" },
   },
   {
     id: 1006,
@@ -67,7 +67,7 @@ const demoActivities = [
     distance: 42180,
     moving_time: 6125,
     start_date: "2026-06-28T07:44:00Z",
-    map: { summary_polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" },
+    map: { summary_polyline: "og~xHfxy@gw@gw@gw@ooB~WooB~iAwj@~iAnvA~W~{BovAnoB" },
   },
   {
     id: 1008,

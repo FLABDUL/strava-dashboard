@@ -264,7 +264,7 @@ export default function StravaDashboard() {
                               onClick={() => setShowMap((current) => ({ ...current, [activity.id]: !current[activity.id] }))}
                               className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-500"
                             >
-                              {showMap[activity.id] ? "Hide map" : "Show map"}
+                              {showMap[activity.id] ? "Hide synthetic map" : "Show synthetic map"}
                             </button>
                             {showMap[activity.id] && (
                               <div className="mt-3 h-52 overflow-hidden rounded-xl border border-zinc-700">
