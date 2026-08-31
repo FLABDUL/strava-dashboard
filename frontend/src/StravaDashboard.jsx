@@ -322,7 +322,7 @@ function PortfolioIntro() {
           <ul className="mt-4 space-y-3 text-sm">
             <DemoStatus label="Activity source" value="Representative data" />
             <DemoStatus label="AI analysis" value="Cached response" />
-            <DemoStatus label="External API calls" value="None" />
+            <DemoStatus label="Strava / OpenAI calls" value="None" />
           </ul>
           <p className="mt-5 border-t border-zinc-800 pt-4 text-xs leading-5 text-zinc-600">
             Live Strava sync is disabled because Standard Tier API access now requires a paid Strava subscription.
