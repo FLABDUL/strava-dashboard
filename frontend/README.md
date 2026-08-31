@@ -1,64 +1,18 @@
-## 📜 License
+# Frontend
 
-MIT
+The React and Vite frontend provides the public synthetic demo and the optional local `?live=1` integration view.
 
-**Frontend README.md**
+Canonical project documentation lives at the repository root:
 
-# 🧭 Frontend (React + Vite)
+- [Project overview](../README.md)
+- [User guide](../docs/USER_GUIDE.md)
+- [Architecture](../docs/ARCHITECTURE.md)
+- [Development](../docs/DEVELOPMENT.md)
+- [Project status](../docs/PROJECT_STATUS.md)
 
-This directory contains the React frontend for the Personal Strava Dashboard.
+For a quick local start:
 
----
-
-## ✨ Features
-
-* 📊 Display activity data fetched from the backend
-* 📈 Interactive charts with Chart.js
-* 🧭 Filter activities by sport
-* 🏞 Map previews of each activity route
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-* Node.js (v18.x recommended)
-
-### Steps
-
-1. From the project root, navigate to the frontend directory:
-
-```bash
-cd frontend
-```
-
-2. Install dependencies:
-
-```bash
+```powershell
 npm install
-```
-
-3. Start the development server:
-
-```bash
 npm run dev
 ```
-
-Your frontend will be accessible at [http://localhost:5173](http://localhost:5173).
-
----
-
-## 🧪 Tech Stack
-
-* React
-* Vite
-* Tailwind CSS
-* React-Leaflet
-* Chart.js
-
----
-
-## 🤝 Contributing
-
-Issues and PRs welcome!
