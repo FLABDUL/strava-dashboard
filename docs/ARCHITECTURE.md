@@ -146,15 +146,15 @@ The request sets `store: false`, uses a strict JSON schema and asks the model fo
 
 ```mermaid
 flowchart TD
-    Main[main.jsx] --> App[App.jsx]
-    App --> Dashboard[StravaDashboard.jsx]
-    Dashboard --> Demo[demoActivities.js]
-    Dashboard --> Chart[react-chartjs-2]
-    Dashboard --> Tables[Weekly and monthly summaries]
-    Dashboard --> Insights[AIInsightsPanel.jsx]
-    Dashboard -->|lazy loaded| Map[ActivityMapPreview.jsx]
-    Map --> Polyline[@mapbox/polyline]
-    Map --> Leaflet[React Leaflet]
+    Main["main.jsx"] --> App["App.jsx"]
+    App --> Dashboard["StravaDashboard.jsx"]
+    Dashboard --> Demo["demoActivities.js"]
+    Dashboard --> Chart["react-chartjs-2"]
+    Dashboard --> Tables["Weekly and monthly summaries"]
+    Dashboard --> Insights["AIInsightsPanel.jsx"]
+    Dashboard -->|lazy loaded| Map["ActivityMapPreview.jsx"]
+    Map --> Polyline["@mapbox/polyline"]
+    Map --> Leaflet["React Leaflet"]
 ```
 
 `StravaDashboard.jsx` owns mode selection, activity loading, filters and all primary aggregation. `AIInsightsPanel.jsx` owns the cached/live AI states. `ActivityMapPreview.jsx` is lazy-loaded so the mapping bundle is only needed when the component is rendered.
